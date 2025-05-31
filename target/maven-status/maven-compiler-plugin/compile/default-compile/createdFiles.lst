@@ -1,0 +1,11 @@
+com\mycompany\maglshop\dao\SupplyDAO.class
+com\mycompany\maglshop\model\Buyer.class
+com\mycompany\maglshop\dao\ComponentDAO.class
+com\mycompany\maglshop\model\Supply.class
+com\mycompany\maglshop\GUI.class
+com\mycompany\maglshop\DBConnection.class
+com\mycompany\maglshop\dao\BuyerDAO.class
+com\mycompany\maglshop\dao\PalochkaDAO.class
+com\mycompany\maglshop\model\Component1.class
+com\mycompany\maglshop\MaglShop.class
+com\mycompany\maglshop\model\Palochka.class
