@@ -12,35 +12,44 @@ package com.mycompany.maglshop;
 
 
 
+
 import java.sql.*;
 
 public class MaglShop {
     public static void main(String[] args) {
         try {
-            createTables(); 
-            new GUI().setVisible(true); 
+            createTables(); // Создание таблиц при первом запуске
+            new GUI().setVisible(true); // Запуск интерфейса
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     private static void createTables() throws Exception {
-        String sqlComponent = """
-            CREATE TABLE IF NOT EXISTS component (
+        String sqlWood = """
+            CREATE TABLE IF NOT EXISTS wood (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
-                type TEXT NOT NULL CHECK(type IN ('wood', 'core')),
-                stock_quantity INTEGER DEFAULT 0
+                stock INTEGER DEFAULT 0
             );
         """;
 
-        String sqlPalochka = """
-            CREATE TABLE IF NOT EXISTS palochka (
+        String sqlCore = """
+            CREATE TABLE IF NOT EXISTS core (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                stock INTEGER DEFAULT 0
+            );
+        """;
+
+        String sqlStick = """
+            CREATE TABLE IF NOT EXISTS magic_stick (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 wood_id INTEGER NOT NULL,
                 core_id INTEGER NOT NULL,
-                FOREIGN KEY(wood_id) REFERENCES component(id),
-                FOREIGN KEY(core_id) REFERENCES component(id)
+                stock INTEGER DEFAULT 0,
+                FOREIGN KEY(wood_id) REFERENCES wood(id),
+                FOREIGN KEY(core_id) REFERENCES core(id)
             );
         """;
 
@@ -52,22 +61,37 @@ public class MaglShop {
             );
         """;
 
-        String sqlSupply = """
-            CREATE TABLE IF NOT EXISTS supply (
+        String sqlSale = """
+            CREATE TABLE IF NOT EXISTS sale (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                stick_id INTEGER NOT NULL,
+                buyer_id INTEGER NOT NULL,
+                date TEXT NOT NULL,
+                FOREIGN KEY(stick_id) REFERENCES magic_stick(id),
+                FOREIGN KEY(buyer_id) REFERENCES buyer(id)
+            );
+        """;
+
+        String sqlDelivery = """
+            CREATE TABLE IF NOT EXISTS delivery (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                component_type TEXT NOT NULL CHECK(component_type IN ('wood', 'core')),
                 component_id INTEGER NOT NULL,
                 quantity INTEGER NOT NULL,
                 date TEXT NOT NULL,
-                FOREIGN KEY(component_id) REFERENCES component(id)
+                FOREIGN KEY(component_id) REFERENCES wood(id),
+                FOREIGN KEY(component_id) REFERENCES core(id)
             );
         """;
 
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement()) {
-            stmt.execute(sqlComponent);
-            stmt.execute(sqlPalochka);
+            stmt.execute(sqlWood);
+            stmt.execute(sqlCore);
+            stmt.execute(sqlStick);
             stmt.execute(sqlBuyer);
-            stmt.execute(sqlSupply);
+            stmt.execute(sqlSale);
+            stmt.execute(sqlDelivery);
         }
     }
 }

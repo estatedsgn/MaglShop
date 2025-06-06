@@ -6,10 +6,11 @@ package com.mycompany.maglshop.dao;
 
 import com.mycompany.maglshop.model.Component1;
 import com.mycompany.maglshop.DBConnection;
+import java.io.IOException;
 import java.sql.*;
 
 public class ComponentDAO {
-    public void addComponent(Component1 component) throws SQLException {
+    public void addComponent(Component1 component) throws SQLException, IOException {
         String sql = "INSERT INTO component(name, type, stock_quantity) VALUES(?,?,?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -20,7 +21,7 @@ public class ComponentDAO {
         }
     }
 
-    public void updateStock(int componentId, int newQuantity) throws SQLException {
+    public void updateStock(int componentId, int newQuantity) throws SQLException, IOException {
         String sql = "UPDATE component SET stock_quantity = ? WHERE id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {

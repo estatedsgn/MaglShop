@@ -4,131 +4,202 @@
  */
 package com.mycompany.maglshop;
 
-import com.mycompany.maglshop.DBConnection;
 import javax.swing.*;
 import java.awt.*;
-
+import java.awt.event.*;
 import com.mycompany.maglshop.dao.*;
 import com.mycompany.maglshop.model.*;
-
-
+import com.mycompany.maglshop.DBConnection;
+import java.util.*;
 import java.sql.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.table.DefaultTableModel;
 
 public class GUI extends JFrame {
-    private JTable supplyTable;
-    private JTable stockTable;
-    private DefaultTableModel supplyTableModel;
-    private DefaultTableModel stockTableModel;
+    private JTable woodTable, coreTable, stickTable, buyerTable, saleTable;
+    private DefaultTableModel woodModel, coreModel, stickModel, buyerModel, saleModel;
+    private ShopService shopService = new ShopService();
 
-    public GUI() {
+    public GUI() throws Exception {
         setTitle("MaglShop - Учетная система");
         setSize(1200, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
+        // Инициализация моделей и таблиц
+        initTables();
+
+        // Главное меню
+        JMenuBar menuBar = new JMenuBar();
+        JMenu fileMenu = new JMenu("Файл");
+        JMenuItem resetItem = new JMenuItem("Очистить всё");
+        resetItem.addActionListener(e -> fullReset());
+        fileMenu.add(resetItem);
+        menuBar.add(fileMenu);
+        setJMenuBar(menuBar);
+
         // Панель действий
-        JPanel actionPanel = new JPanel(new GridLayout(0, 1));
-        JButton addComponentBtn = new JButton("Добавить компонент");
-        JButton addPalochkaBtn = new JButton("Добавить палочку");
-        JButton addBuyerBtn = new JButton("Добавить покупателя");
-        JButton addSupplyBtn = new JButton("Добавить поставку");
-        JButton resetBtn = new JButton("Очистить всё");
-
-        actionPanel.add(addComponentBtn);
-        actionPanel.add(addPalochkaBtn);
-        actionPanel.add(addBuyerBtn);
-        actionPanel.add(addSupplyBtn);
-        actionPanel.add(resetBtn);
-
-        // Таблица поставок
-        supplyTableModel = new DefaultTableModel();
-        supplyTableModel.addColumn("ID");
-        supplyTableModel.addColumn("Компонент");
-        supplyTableModel.addColumn("Количество");
-        supplyTableModel.addColumn("Дата");
-        updateSupplyTable();
-
-        supplyTable = new JTable(supplyTableModel);
-        JScrollPane supplyScrollPane = new JScrollPane(supplyTable);
-
-        // Таблица склада
-        stockTableModel = new DefaultTableModel();
-        stockTableModel.addColumn("ID");
-        stockTableModel.addColumn("Компонент");
-        stockTableModel.addColumn("Тип");
-        stockTableModel.addColumn("Количество");
-        updateStockTable();
-
-        stockTable = new JTable(stockTableModel);
-        JScrollPane stockScrollPane = new JScrollPane(stockTable);
-
-        // Панель таблиц
-        JSplitPane tableSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, supplyScrollPane, stockScrollPane);
-        tableSplitPane.setDividerLocation(600);
+        JPanel actionPanel = createActionPanel();
 
         // Главная панель
-        JSplitPane mainPanel = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, actionPanel, tableSplitPane);
-        mainPanel.setDividerLocation(300);
+        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, actionPanel, createTablePanel());
+        mainSplitPane.setDividerLocation(300);
+        add(mainSplitPane, BorderLayout.CENTER);
 
-        add(mainPanel, BorderLayout.CENTER);
+        // Обновление данных
+        updateAllTables();
+    }
 
-        // Обработчики событий
-        addComponentBtn.addActionListener(e -> addComponentDialog());
-        addPalochkaBtn.addActionListener(e -> addPalochkaDialog());
+    private JPanel createActionPanel() {
+        JPanel panel = new JPanel(new GridLayout(0, 1));
+
+        JButton addWoodBtn = new JButton("Добавить древесину");
+        JButton addCoreBtn = new JButton("Добавить сердцевину");
+        JButton addBuyerBtn = new JButton("Добавить покупателя");
+        JButton addStickBtn = new JButton("Добавить палочку");
+        JButton sellStickBtn = new JButton("Продать палочку");
+        JButton clearAllBtn = new JButton("Очистить всё");
+
+        panel.add(addWoodBtn);
+        panel.add(addCoreBtn);
+        panel.add(addBuyerBtn);
+        panel.add(addStickBtn);
+        panel.add(sellStickBtn);
+        panel.add(clearAllBtn);
+
+        addWoodBtn.addActionListener(e -> addWoodDialog());
+        addCoreBtn.addActionListener(e -> addCoreDialog());
         addBuyerBtn.addActionListener(e -> addBuyerDialog());
-        addSupplyBtn.addActionListener(e -> {
+        addStickBtn.addActionListener(e -> {
             try {
-                addSupplyDialog();
-            } catch (SQLException ex) {
+                addStickDialog();
+            } catch (Exception ex) {
                 Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
             }
         });
-        resetBtn.addActionListener(e -> fullReset());
+        sellStickBtn.addActionListener(e -> {
+            try {
+                sellStickDialog();
+            } catch (Exception ex) {
+                Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        });
+        clearAllBtn.addActionListener(e -> fullReset());
+
+        return panel;
     }
 
-    private void addComponentDialog() {
-        String name = JOptionPane.showInputDialog("Название компонента:");
+    private JPanel createTablePanel() {
+        JPanel tablePanel = new JPanel(new GridLayout(3, 2, 10, 10));
+        tablePanel.add(createLabeledPanel("Древесина", woodTable));
+        tablePanel.add(createLabeledPanel("Сердцевина", coreTable));
+        tablePanel.add(createLabeledPanel("Палочки", stickTable));
+        tablePanel.add(createLabeledPanel("Покупатели", buyerTable));
+        tablePanel.add(createLabeledPanel("Продажи", saleTable));
+        return tablePanel;
+    }
+
+    private JScrollPane createLabeledPanel(String title, JTable table) {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBorder(BorderFactory.createTitledBorder(title));
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(panel);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+        return scrollPane;
+    }
+
+    private void initTables() {
+        woodModel = new DefaultTableModel(new String[]{"ID", "Название", "Количество"}, 0);
+        woodTable = new JTable(woodModel);
+        coreModel = new DefaultTableModel(new String[]{"ID", "Название", "Количество"}, 0);
+        coreTable = new JTable(coreModel);
+        stickModel = new DefaultTableModel(new String[]{"ID", "Древесина", "Сердцевина", "Количество"}, 0);
+        stickTable = new JTable(stickModel);
+        buyerModel = new DefaultTableModel(new String[]{"ID", "Имя", "Адрес"}, 0);
+        buyerTable = new JTable(buyerModel);
+        saleModel = new DefaultTableModel(new String[]{"ID", "Палочка", "Покупатель", "Дата"}, 0);
+        saleTable = new JTable(saleModel);
+    }
+
+    private void updateAllTables() throws Exception {
+        updateWoodTable();
+        updateCoreTable();
+        updateStickTable();
+        updateBuyerTable();
+        updateSaleTable();
+    }
+
+    private void updateWoodTable() throws Exception {
+        woodModel.setRowCount(0);
+        for (Wood w : shopService.getAllWoods()) {
+            woodModel.addRow(new Object[]{w.getId(), w.getName(), w.getStock()});
+        }
+    }
+
+    private void updateCoreTable() throws Exception {
+        coreModel.setRowCount(0);
+        for (Core c : shopService.getAllCores()) {
+            coreModel.addRow(new Object[]{c.getId(), c.getName(), c.getStock()});
+        }
+    }
+
+    private void updateStickTable() throws Exception {
+        stickModel.setRowCount(0);
+        for (MagicStick s : shopService.getAllSticks()) {
+            stickModel.addRow(new Object[]{
+                s.getId(),
+                s.getWood().getName(),
+                s.getCore().getName(),
+                s.getStock()
+            });
+        }
+    }
+
+    private void updateBuyerTable() throws Exception {
+        buyerModel.setRowCount(0);
+        for (Buyer b : shopService.getAllBuyers()) {
+            buyerModel.addRow(new Object[]{b.getId(), b.getName(), b.getAddress()});
+        }
+    }
+
+    private void updateSaleTable() throws Exception {
+        saleModel.setRowCount(0);
+        for (Sale sale : shopService.getAllSales()) {
+            MagicStick stick = shopService.getStickById(sale.getStickId());
+            Buyer buyer = shopService.getBuyerById(sale.getBuyerId());
+            saleModel.addRow(new Object[]{
+                sale.getId(),
+                stick != null ? stick.getId() : "Не найдено",
+                buyer != null ? buyer.getName() : "Не найдено",
+                sale.getDate() 
+            });
+        }
+    }
+
+    private void addWoodDialog() {
+        String name = JOptionPane.showInputDialog("Название древесины:");
         if (name == null || name.trim().isEmpty()) return;
-
-        Object[] typeOptions = {"wood", "core"};
-        String type = (String) JOptionPane.showInputDialog(this, "Выберите тип:", "Тип компонента", 
-            JOptionPane.QUESTION_MESSAGE, null, typeOptions, "wood");
-
-        if (type == null) return;
         String qtyStr = JOptionPane.showInputDialog("Количество:");
         int qty = Integer.parseInt(qtyStr);
-
         try {
-            new ComponentDAO().addComponent(new Component1(0, name, type, qty));
-            JOptionPane.showMessageDialog(this, "Компонент добавлен!");
-            updateStockTable();
-            updateSupplyTable();
+            shopService.addWood(name, qty);
+            updateWoodTable();
+            JOptionPane.showMessageDialog(this, "Древесина добавлена!");
         } catch (Exception ex) {
             showError(ex.getMessage());
         }
     }
 
-    private void addPalochkaDialog() {
-        String woodName = JOptionPane.showInputDialog("Древесина (название):");
-        String coreName = JOptionPane.showInputDialog("Сердцевина (название):");
-
-        int woodId = getComponentId("wood", woodName);
-        int coreId = getComponentId("core", coreName);
-
-        if (woodId == -1 || coreId == -1) {
-            JOptionPane.showMessageDialog(this, "Компоненты не найдены!", "Ошибка", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
+    private void addCoreDialog() {
+        String name = JOptionPane.showInputDialog("Название сердцевины:");
+        if (name == null || name.trim().isEmpty()) return;
+        String qtyStr = JOptionPane.showInputDialog("Количество:");
+        int qty = Integer.parseInt(qtyStr);
         try {
-            new PalochkaDAO().addPalochka(new Palochka(0, woodId, coreId));
-            new ComponentDAO().updateStock(woodId, getStock(woodId) - 1);
-            new ComponentDAO().updateStock(coreId, getStock(coreId) - 1);
-            JOptionPane.showMessageDialog(this, "Палочка добавлена!");
-            updateStockTable();
+            shopService.addCore(name, qty);
+            updateCoreTable();
+            JOptionPane.showMessageDialog(this, "Сердцевина добавлена!");
         } catch (Exception ex) {
             showError(ex.getMessage());
         }
@@ -137,132 +208,101 @@ public class GUI extends JFrame {
     private void addBuyerDialog() {
         String name = JOptionPane.showInputDialog("Имя покупателя:");
         String address = JOptionPane.showInputDialog("Адрес:");
-
         try {
-            new BuyerDAO().addBuyer(new Buyer(0, name, address));
+            shopService.addBuyer(name, address);
+            updateBuyerTable();
             JOptionPane.showMessageDialog(this, "Покупатель добавлен!");
         } catch (Exception ex) {
             showError(ex.getMessage());
         }
     }
 
-    private void addSupplyDialog() throws SQLException {
-        String componentName = JOptionPane.showInputDialog("Название компонента:");
-        if (componentName == null) return;
+    private void addStickDialog() throws Exception {
+        String woodName = JOptionPane.showInputDialog("Древесина (название):");
+        String coreName = JOptionPane.showInputDialog("Сердцевина (название):");
 
-        Object[] typeOptions = {"wood", "core"};
-        String type = (String) JOptionPane.showInputDialog(this, "Выберите тип:", "Тип компонента", 
-            JOptionPane.QUESTION_MESSAGE, null, typeOptions, "wood");
+        int woodId = shopService.getWoodId(woodName);
+        int coreId = shopService.getCoreId(coreName);
 
-        if (type == null) return;
-
-        int componentId = getComponentId(type, componentName);
-        if (componentId == -1) {
-            int result = JOptionPane.showConfirmDialog(this, 
-                "Компонент не найден. Создать новый?", "Создать компонент", 
-                JOptionPane.YES_NO_OPTION);
-            if (result == JOptionPane.YES_OPTION) {
-                new ComponentDAO().addComponent(new Component1(0, componentName, type, 0));
-                componentId = getComponentId(type, componentName);
-            } else {
-                return;
-            }
+        if (woodId == -1 || coreId == -1) {
+            JOptionPane.showMessageDialog(this, "Компоненты не найдены!", "Ошибка", JOptionPane.ERROR_MESSAGE);
+            return;
         }
 
-        String qtyStr = JOptionPane.showInputDialog("Количество:");
-        int qty = Integer.parseInt(qtyStr);
-        String date = JOptionPane.showInputDialog("Дата поставки (ГГГГ-ММ-ДД):");
+        String stockStr = JOptionPane.showInputDialog("Количество палочек:");
+        int stock = Integer.parseInt(stockStr);
 
         try {
-            new SupplyDAO().addSupply(new Supply(0, componentId, qty, date));
-            new ComponentDAO().updateStock(componentId, getStock(componentId) + qty);
-            JOptionPane.showMessageDialog(this, "Поставка добавлена!");
-            updateStockTable();
-            updateSupplyTable();
+            shopService.addStick(woodId, coreId, stock);
+            updateStickTable();
+            updateComponentStock("wood", woodName, -stock);
+            updateComponentStock("core", coreName, -stock);
+            JOptionPane.showMessageDialog(this, "Палочки добавлены!");
         } catch (Exception ex) {
             showError(ex.getMessage());
         }
     }
 
-    private void updateSupplyTable() {
-        supplyTableModel.setRowCount(0);
-        try (Connection conn = DBConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT s.id, c.name, s.quantity, s.date " +
-                "FROM supply s JOIN component c ON s.component_id = c.id")) {
-            
-            while (rs.next()) {
-                supplyTableModel.addRow(new Object[]{
-                    rs.getInt("id"),
-                    rs.getString("name"),
-                    rs.getInt("quantity"),
-                    rs.getString("date")
-                });
+    private void sellStickDialog() throws Exception {
+        int stickId = Integer.parseInt(JOptionPane.showInputDialog("ID палочки:"));
+        MagicStick stick = shopService.getStickById(stickId);
+        if (stick == null) {
+            JOptionPane.showMessageDialog(this, "Палочка не найдена!", "Ошибка", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String buyerName = JOptionPane.showInputDialog("Имя покупателя:");
+        if (buyerName == null || buyerName.trim().isEmpty()) return;
+
+        Buyer buyer = shopService.getBuyerByName(buyerName);
+        if (buyer == null) {
+            String address = JOptionPane.showInputDialog("Адрес покупателя:");
+            try {
+                shopService.addBuyer(buyerName, address);
+                buyer = shopService.getBuyerByName(buyerName);
+            } catch (Exception ex) {
+                showError(ex.getMessage());
+                return;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        }
+
+        try {
+            shopService.sellStick(stickId, buyer.getId());
+            updateStickTable();
+            updateSaleTable();
+            updateComponentStock("wood", stick.getWood().getName(), -1);
+            updateComponentStock("core", stick.getCore().getName(), -1);
+            JOptionPane.showMessageDialog(this, "Палочка продана!");
+        } catch (Exception ex) {
+            showError(ex.getMessage());
         }
     }
 
-    private void updateStockTable() {
-        stockTableModel.setRowCount(0);
-        try (Connection conn = DBConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT id, name, type, stock_quantity FROM component")) {
-            
-            while (rs.next()) {
-                stockTableModel.addRow(new Object[]{
-                    rs.getInt("id"),
-                    rs.getString("name"),
-                    rs.getString("type"),
-                    rs.getInt("stock_quantity")
-                });
+    private void updateComponentStock(String type, String name, int change) {
+        try {
+            if (type.equals("wood")) {
+                Wood wood = shopService.getWoodByName(name);
+                if (wood != null) {
+                    wood.setStock(wood.getStock() + change);
+                    shopService.updateComponentStock(wood);
+                }
+            } else {
+                Core core = shopService.getCoreByName(name);
+                if (core != null) {
+                    core.setStock(core.getStock() + change);
+                    shopService.updateComponentStock(core);
+                }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception ex) {
+            showError(ex.getMessage());
         }
-    }
-
-    private int getComponentId(String type, String name) {
-        String sql = "SELECT id FROM component WHERE name = ? AND type = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, name);
-            pstmt.setString(2, type);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return rs.getInt("id");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return -1;
-    }
-
-    private int getStock(int componentId) {
-        String sql = "SELECT stock_quantity FROM component WHERE id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setInt(1, componentId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) return rs.getInt("stock_quantity");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return 0;
     }
 
     private void fullReset() {
         try {
-            String[] tables = {"supply", "buyer", "palochka", "component"};
-            for (String table : tables) {
-                try (Connection conn = DBConnection.getConnection();
-                     Statement stmt = conn.createStatement()) {
-                    stmt.executeUpdate("DELETE FROM " + table);
-                    stmt.executeUpdate("DELETE FROM sqlite_sequence WHERE name = '" + table + "'");
-                }
-            }
+            shopService.fullReset();
+            updateAllTables();
             JOptionPane.showMessageDialog(this, "Данные очищены!");
-            updateStockTable();
-            updateSupplyTable();
         } catch (Exception ex) {
             showError(ex.getMessage());
         }
@@ -270,5 +310,15 @@ public class GUI extends JFrame {
 
     private void showError(String message) {
         JOptionPane.showMessageDialog(this, "Ошибка: " + message, "Ошибка", JOptionPane.ERROR_MESSAGE);
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                new GUI().setVisible(true);
+            } catch (Exception ex) {
+                Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        });
     }
 }

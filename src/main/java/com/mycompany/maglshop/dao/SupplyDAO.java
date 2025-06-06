@@ -6,10 +6,11 @@ package com.mycompany.maglshop.dao;
 
 import com.mycompany.maglshop.model.Supply;
 import com.mycompany.maglshop.DBConnection;
+import java.io.IOException;
 import java.sql.*;
 
 public class SupplyDAO {
-    public void addSupply(Supply supply) throws SQLException {
+    public void addSupply(Supply supply) throws SQLException, IOException {
         String sql = "INSERT INTO supply(component_id, quantity, date) VALUES(?,?,?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
