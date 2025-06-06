@@ -223,14 +223,21 @@ public class GUI extends JFrame {
 
         int woodId = shopService.getWoodId(woodName);
         int coreId = shopService.getCoreId(coreName);
-
-        if (woodId == -1 || coreId == -1) {
-            JOptionPane.showMessageDialog(this, "Компоненты не найдены!", "Ошибка", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
         String stockStr = JOptionPane.showInputDialog("Количество палочек:");
         int stock = Integer.parseInt(stockStr);
+
+        if (woodId == -1) {
+            
+            shopService.addWood(woodName, stock);
+            woodId = shopService.getWoodId(woodName);
+        }
+
+        if (coreId == -1) {
+            shopService.addCore(coreName, stock);
+            coreId = shopService.getCoreId(coreName);
+        }
+
+        
 
         try {
             shopService.addStick(woodId, coreId, stock);
@@ -312,13 +319,5 @@ public class GUI extends JFrame {
         JOptionPane.showMessageDialog(this, "Ошибка: " + message, "Ошибка", JOptionPane.ERROR_MESSAGE);
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                new GUI().setVisible(true);
-            } catch (Exception ex) {
-                Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        });
-    }
+
 }
