@@ -108,31 +108,58 @@ public class ShopService {
         int componentId = type.equals("wood") ? getWoodId(name) : getCoreId(name);
         deliveryDAO.addDelivery(new Delivery(0, componentId, quantity, date));
     }
-        public void addStick(int woodId, int coreId, int stock) throws Exception {
-        
+    public MagicStick getStickByWoodAndCore(int woodId, int coreId) throws Exception {
+        return stickDAO.getByWoodAndCore(woodId, coreId);
+    }
+    public void addStick(int woodId, int coreId) throws Exception {
         Wood wood = woodDAO.getById(woodId);
         Core core = coreDAO.getById(coreId);
 
-        
         if (wood == null) throw new Exception("Древесина с ID " + woodId + " не найдена");
         if (core == null) throw new Exception("Сердцевина с ID " + coreId + " не найдена");
 
-        
-        MagicStick stick = new MagicStick(0, wood, core, stock);
+        // Проверяем наличие компонентов на складе
+        if (wood.getStock() < 1) throw new Exception("Недостаточно древесины на складе");
+        if (core.getStock() < 1) throw new Exception("Недостаточно сердцевины на складе");
 
-        
+        // Создаем палочку (всегда с количеством 1)
+        MagicStick stick = new MagicStick(wood, core);
         stickDAO.addStick(stick);
+
+        // Уменьшаем количество компонентов на складе
+        wood.setStock(wood.getStock() - 1);
+        core.setStock(core.getStock() - 1);
+        woodDAO.updateStock(wood);
+        coreDAO.updateStock(core);
     }
 
+    // Изменить метод sellStick:
     public void sellStick(int stickId, int buyerId) throws Exception {
         MagicStick stick = getStickById(stickId);
+        if (stick == null) throw new Exception("Палочка не найдена");
+        if (stick.isSold()) throw new Exception("Палочка уже продана");
+
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         String formattedDate = sdf.format(new java.util.Date());
-        
+
         Sale sale = new Sale(0, stickId, buyerId, formattedDate);
         saleDAO.addSale(sale);
+
+        // Помечаем палочку как проданную
+        stickDAO.markAsSold(stickId);
     }
 
+    // Добавить метод для получения доступных (непроданных) палочек:
+    public List<MagicStick> getAvailableSticks() throws Exception {
+        List<MagicStick> allSticks = stickDAO.getAll();
+        List<MagicStick> availableSticks = new ArrayList<>();
+        for (MagicStick stick : allSticks) {
+            if (!stick.isSold()) {
+                availableSticks.add(stick);
+            }
+        }
+        return availableSticks;
+    }
     public void updateComponentStock(Wood wood) throws Exception {
         woodDAO.updateStock(wood);
     }

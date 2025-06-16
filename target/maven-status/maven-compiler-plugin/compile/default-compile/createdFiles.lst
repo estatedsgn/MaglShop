@@ -1,8 +1,8 @@
 com\mycompany\maglshop\model\Delivery.class
+com\mycompany\maglshop\GUI$1.class
 com\mycompany\maglshop\model\Wood.class
 com\mycompany\maglshop\model\Buyer.class
 com\mycompany\maglshop\model\Core.class
-com\mycompany\maglshop\dao\ComponentDAO.class
 com\mycompany\maglshop\model\Supply.class
 com\mycompany\maglshop\GUI.class
 com\mycompany\maglshop\model\Purchase.class
@@ -10,7 +10,6 @@ com\mycompany\maglshop\dao\DeliveryDAO.class
 com\mycompany\maglshop\DBConnection.class
 com\mycompany\maglshop\model\DeliveryDetails.class
 com\mycompany\maglshop\dao\BuyerDAO.class
-com\mycompany\maglshop\model\Component1.class
 com\mycompany\maglshop\dao\CoreDAO.class
 com\mycompany\maglshop\MaglShop.class
 com\mycompany\maglshop\dao\PurchaseDAO.class

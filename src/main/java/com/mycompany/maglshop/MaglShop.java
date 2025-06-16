@@ -48,6 +48,7 @@ public class MaglShop {
                 wood_id INTEGER NOT NULL,
                 core_id INTEGER NOT NULL,
                 stock INTEGER DEFAULT 0,
+                sold BOOLEAN DEFAULT FALSE,
                 FOREIGN KEY(wood_id) REFERENCES wood(id),
                 FOREIGN KEY(core_id) REFERENCES core(id)
             );

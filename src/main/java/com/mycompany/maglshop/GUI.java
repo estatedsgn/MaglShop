@@ -20,6 +20,13 @@ public class GUI extends JFrame {
     private JTable woodTable, coreTable, stickTable, buyerTable, saleTable;
     private DefaultTableModel woodModel, coreModel, stickModel, buyerModel, saleModel;
     private ShopService shopService = new ShopService();
+    
+    private JProgressBar warehouseProgressBar;
+    private JLabel warehouseLabel;
+    private JPanel warehousePanel;
+    
+    // Константы для расчета заполненности
+    private static final int MAX_WAREHOUSE_CAPACITY = 100;
 
     public GUI() throws Exception {
         setTitle("MaglShop - Учетная система");
@@ -42,15 +49,58 @@ public class GUI extends JFrame {
         // Панель действий
         JPanel actionPanel = createActionPanel();
 
+        // Создаем основную левую панель с действиями и индикатором склада
+        JPanel leftPanel = new JPanel(new BorderLayout());
+        leftPanel.add(actionPanel, BorderLayout.CENTER);
+        leftPanel.add(createWarehousePanel(), BorderLayout.SOUTH); // Добавляем индикатор внизу
+
         // Главная панель
-        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, actionPanel, createTablePanel());
+        JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, createTablePanel());
         mainSplitPane.setDividerLocation(300);
         add(mainSplitPane, BorderLayout.CENTER);
 
         // Обновление данных
         updateAllTables();
     }
-
+ private void addWarehouseTooltip() {
+    try {
+        StringBuilder tooltip = new StringBuilder("<html>");
+        tooltip.append("<b>Детализация склада:</b><br>");
+        
+        int totalWood = 0, totalCore = 0, totalSticks = 0;
+        
+        // Древесина
+        tooltip.append("<br><u>Древесина:</u><br>");
+        for (Wood wood : shopService.getAllWoods()) {
+            tooltip.append(String.format("• %s: %d шт.<br>", wood.getName(), wood.getStock()));
+            totalWood += wood.getStock();
+        }
+        
+        // Сердцевины
+        tooltip.append("<br><u>Сердцевины:</u><br>");
+        for (Core core : shopService.getAllCores()) {
+            tooltip.append(String.format("• %s: %d шт.<br>", core.getName(), core.getStock()));
+            totalCore += core.getStock();
+        }
+        
+        // Готовые палочки
+        for (MagicStick stick : shopService.getAllSticks()) {
+            if (!stick.isSold()) {
+                totalSticks++;
+            }
+        }
+        
+        tooltip.append(String.format("<br><u>Готовые палочки:</u> %d шт.<br>", totalSticks));
+        tooltip.append(String.format("<br><b>Итого:</b> %d единиц", totalWood + totalCore + totalSticks));
+        
+        tooltip.append("</html>");
+        
+        warehousePanel.setToolTipText(tooltip.toString());
+        
+    } catch (Exception e) {
+        warehousePanel.setToolTipText("Ошибка загрузки данных склада");
+    }
+}
     private JPanel createActionPanel() {
         JPanel panel = new JPanel(new GridLayout(0, 1));
 
@@ -108,19 +158,92 @@ public class GUI extends JFrame {
         scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
         return scrollPane;
     }
+    
+    private void updateWarehouseIndicator() {
+       try {
+           // Подсчитываем общее количество компонентов на складе
+           int totalStock = 0;
 
-    private void initTables() {
-        woodModel = new DefaultTableModel(new String[]{"ID", "Название", "Количество"}, 0);
-        woodTable = new JTable(woodModel);
-        coreModel = new DefaultTableModel(new String[]{"ID", "Название", "Количество"}, 0);
-        coreTable = new JTable(coreModel);
-        stickModel = new DefaultTableModel(new String[]{"ID", "Древесина", "Сердцевина", "Количество"}, 0);
-        stickTable = new JTable(stickModel);
-        buyerModel = new DefaultTableModel(new String[]{"ID", "Имя", "Адрес"}, 0);
-        buyerTable = new JTable(buyerModel);
-        saleModel = new DefaultTableModel(new String[]{"ID", "Палочка", "Покупатель", "Дата"}, 0);
-        saleTable = new JTable(saleModel);
+           // Считаем древесину
+           for (Wood wood : shopService.getAllWoods()) {
+               totalStock += wood.getStock();
+           }
+
+           // Считаем сердцевины
+           for (Core core : shopService.getAllCores()) {
+               totalStock += core.getStock();
+           }
+
+           // Считаем непроданные палочки (каждая палочка = 1 единица)
+           for (MagicStick stick : shopService.getAllSticks()) {
+               if (!stick.isSold()) {
+                   totalStock += 1; // Каждая палочка добавляет только 1 к общему количеству
+               }
+           }
+
+           // Рассчитываем процент заполненности
+           int percentage = Math.min((totalStock * 100) / MAX_WAREHOUSE_CAPACITY, 100);
+
+           // Обновляем интерфейс
+           warehouseLabel.setText(String.format("Загрузка: %d/%d (%d%%)", 
+                                              totalStock, MAX_WAREHOUSE_CAPACITY, percentage));
+           warehouseProgressBar.setValue(totalStock);
+           warehouseProgressBar.setString(percentage + "%");
+
+           // Изменяем цвет в зависимости от заполненности
+           if (percentage <= 60) {
+               warehouseProgressBar.setForeground(Color.GREEN);
+           } else if (percentage <= 80) {
+               warehouseProgressBar.setForeground(Color.ORANGE);
+           } else {
+               warehouseProgressBar.setForeground(Color.RED);
+           }
+
+           // Обновляем максимальное значение прогресс-бара, если нужно
+           if (totalStock > MAX_WAREHOUSE_CAPACITY) {
+               warehouseProgressBar.setMaximum(totalStock);
+           }
+
+       } catch (Exception e) {
+           warehouseLabel.setText("Ошибка загрузки данных");
+           warehouseProgressBar.setValue(0);
+           warehouseProgressBar.setString("0%");
+       }
+   }
+    
+            private JPanel createWarehousePanel() {
+        warehousePanel = new JPanel();
+        warehousePanel.setLayout(new BoxLayout(warehousePanel, BoxLayout.Y_AXIS));
+        warehousePanel.setBorder(BorderFactory.createTitledBorder("Заполненность склада"));
+        warehousePanel.setPreferredSize(new Dimension(280, 100)); // Уменьшили высоту
+
+        // Заголовок
+        warehouseLabel = new JLabel("Загрузка: 0/100 (0%)", SwingConstants.CENTER);
+        warehouseLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 12));
+
+        // Прогресс-бар
+        warehouseProgressBar = new JProgressBar(0, MAX_WAREHOUSE_CAPACITY);
+        warehouseProgressBar.setStringPainted(true);
+        warehouseProgressBar.setString("0%");
+
+        // Цветовая схема для прогресс-бара
+        warehouseProgressBar.setForeground(Color.GREEN);
+
+        // Убираем легенду или делаем её более компактной
+        JPanel legendPanel = new JPanel(new FlowLayout());
+        JLabel legendLabel = new JLabel("");
+        legendPanel.add(legendLabel);
+
+        warehousePanel.add(Box.createVerticalStrut(5));
+        warehousePanel.add(warehouseLabel);
+        warehousePanel.add(Box.createVerticalStrut(5));
+        warehousePanel.add(warehouseProgressBar);
+        warehousePanel.add(Box.createVerticalStrut(3));
+        warehousePanel.add(legendPanel);
+
+        return warehousePanel;
     }
+
 
     private void updateAllTables() throws Exception {
         updateWoodTable();
@@ -128,6 +251,7 @@ public class GUI extends JFrame {
         updateStickTable();
         updateBuyerTable();
         updateSaleTable();
+        updateWarehouseIndicator();
     }
 
     private void updateWoodTable() throws Exception {
@@ -147,14 +271,78 @@ public class GUI extends JFrame {
     private void updateStickTable() throws Exception {
         stickModel.setRowCount(0);
         for (MagicStick s : shopService.getAllSticks()) {
+            int row = stickModel.getRowCount();
             stickModel.addRow(new Object[]{
                 s.getId(),
                 s.getWood().getName(),
                 s.getCore().getName(),
                 s.getStock()
             });
+
+            // Если палочка продана, помечаем строку красным цветом
+            if (s.isSold()) {
+                // Нужно создать кастомный рендерер для таблицы
+            }
         }
     }
+
+    // Добавить кастомный рендерер в метод initTables:
+    private void initTables() {
+        woodModel = new DefaultTableModel(new String[]{"ID", "Название", "Количество"}, 0);
+        woodTable = new JTable(woodModel);
+        coreModel = new DefaultTableModel(new String[]{"ID", "Название", "Количество"}, 0);
+        coreTable = new JTable(coreModel);
+        stickModel = new DefaultTableModel(new String[]{"ID", "Древесина", "Сердцевина", "Количество"}, 0);
+        stickTable = new JTable(stickModel);
+
+        // Кастомный рендерер для таблицы палочек
+        stickTable.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, 
+                    boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+                try {
+                    int stickId = (Integer) table.getValueAt(row, 0);
+                    MagicStick stick = shopService.getStickById(stickId);
+                    if (stick != null && stick.isSold()) {
+                        c.setBackground(Color.RED);
+                        c.setForeground(Color.WHITE);
+                    } else {
+                        c.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
+                        c.setForeground(isSelected ? table.getSelectionForeground() : table.getForeground());
+                    }
+                } catch (Exception e) {
+                    // В случае ошибки используем стандартные цвета
+                    c.setBackground(isSelected ? table.getSelectionBackground() : table.getBackground());
+                    c.setForeground(isSelected ? table.getSelectionForeground() : table.getForeground());
+                }
+
+                return c;
+            }
+        });
+
+        buyerModel = new DefaultTableModel(new String[]{"ID", "Имя", "Адрес"}, 0);
+        buyerTable = new JTable(buyerModel);
+        saleModel = new DefaultTableModel(new String[]{"ID", "ID Палочки", "Покупатель", "Дата"}, 0);
+        saleTable = new JTable(saleModel);
+    }
+
+    // Изменить метод updateSaleTable:
+    private void updateSaleTable() throws Exception {
+        saleModel.setRowCount(0);
+        for (Sale sale : shopService.getAllSales()) {
+            Buyer buyer = shopService.getBuyerById(sale.getBuyerId());
+            saleModel.addRow(new Object[]{
+                sale.getId(),
+                sale.getStickId(), // Теперь показываем ID палочки
+                buyer != null ? buyer.getName() : "Не найдено",
+                sale.getDate() 
+            });
+        }
+    }
+    // Изменить метод sellStickDialog для проверки доступности:
+
 
     private void updateBuyerTable() throws Exception {
         buyerModel.setRowCount(0);
@@ -163,47 +351,64 @@ public class GUI extends JFrame {
         }
     }
 
-    private void updateSaleTable() throws Exception {
-        saleModel.setRowCount(0);
-        for (Sale sale : shopService.getAllSales()) {
-            MagicStick stick = shopService.getStickById(sale.getStickId());
-            Buyer buyer = shopService.getBuyerById(sale.getBuyerId());
-            saleModel.addRow(new Object[]{
-                sale.getId(),
-                stick != null ? stick.getId() : "Не найдено",
-                buyer != null ? buyer.getName() : "Не найдено",
-                sale.getDate() 
-            });
-        }
-    }
 
-    private void addWoodDialog() {
-        String name = JOptionPane.showInputDialog("Название древесины:");
-        if (name == null || name.trim().isEmpty()) return;
-        String qtyStr = JOptionPane.showInputDialog("Количество:");
-        int qty = Integer.parseInt(qtyStr);
-        try {
-            shopService.addWood(name, qty);
-            updateWoodTable();
-            JOptionPane.showMessageDialog(this, "Древесина добавлена!");
-        } catch (Exception ex) {
-            showError(ex.getMessage());
-        }
-    }
 
-    private void addCoreDialog() {
-        String name = JOptionPane.showInputDialog("Название сердцевины:");
-        if (name == null || name.trim().isEmpty()) return;
-        String qtyStr = JOptionPane.showInputDialog("Количество:");
+
+private void addWoodDialog() {
+    String name = JOptionPane.showInputDialog("Название древесины:");
+    if (name == null || name.trim().isEmpty()) return;
+    
+    String qtyStr = JOptionPane.showInputDialog("Количество:");
+    if (qtyStr == null || qtyStr.trim().isEmpty()) return;
+    
+    try {
         int qty = Integer.parseInt(qtyStr);
-        try {
-            shopService.addCore(name, qty);
-            updateCoreTable();
-            JOptionPane.showMessageDialog(this, "Сердцевина добавлена!");
-        } catch (Exception ex) {
-            showError(ex.getMessage());
+        
+        // Проверяем на отрицательное число
+        if (qty < 0) {
+            JOptionPane.showMessageDialog(this, "Количество не может быть отрицательным!", "Ошибка", JOptionPane.ERROR_MESSAGE);
+            return;
         }
+        
+        shopService.addWood(name, qty);
+        updateWoodTable();
+        updateWarehouseIndicator();
+        JOptionPane.showMessageDialog(this, "Древесина добавлена!");
+    } catch (NumberFormatException ex) {
+        JOptionPane.showMessageDialog(this, "Введите корректное число!", "Ошибка", JOptionPane.ERROR_MESSAGE);
+    } catch (Exception ex) {
+        showError(ex.getMessage());
     }
+}
+
+private void addCoreDialog() {
+    String name = JOptionPane.showInputDialog("Название сердцевины:");
+    if (name == null || name.trim().isEmpty()) return;
+    
+    String qtyStr = JOptionPane.showInputDialog("Количество:");
+    if (qtyStr == null || qtyStr.trim().isEmpty()) return;
+    
+    try {
+        int qty = Integer.parseInt(qtyStr);
+        
+        // Проверяем на отрицательное число
+        if (qty < 0) {
+            JOptionPane.showMessageDialog(this, "Количество не может быть отрицательным!", "Ошибка", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
+        shopService.addCore(name, qty);
+        updateCoreTable();
+        updateWarehouseIndicator();
+        JOptionPane.showMessageDialog(this, "Сердцевина добавлена!");
+    } catch (NumberFormatException ex) {
+        JOptionPane.showMessageDialog(this, "Введите корректное число!", "Ошибка", JOptionPane.ERROR_MESSAGE);
+    } catch (Exception ex) {
+        showError(ex.getMessage());
+    }
+}
+
+
 
     private void addBuyerDialog() {
         String name = JOptionPane.showInputDialog("Имя покупателя:");
@@ -219,37 +424,45 @@ public class GUI extends JFrame {
 
     private void addStickDialog() throws Exception {
         String woodName = JOptionPane.showInputDialog("Древесина (название):");
+        if (woodName == null || woodName.trim().isEmpty()) return;
+
         String coreName = JOptionPane.showInputDialog("Сердцевина (название):");
-
-        int woodId = shopService.getWoodId(woodName);
-        int coreId = shopService.getCoreId(coreName);
-        String stockStr = JOptionPane.showInputDialog("Количество палочек:");
-        int stock = Integer.parseInt(stockStr);
-
-        if (woodId == -1) {
-            
-            shopService.addWood(woodName, stock);
-            woodId = shopService.getWoodId(woodName);
-        }
-
-        if (coreId == -1) {
-            shopService.addCore(coreName, stock);
-            coreId = shopService.getCoreId(coreName);
-        }
-
-        
+        if (coreName == null || coreName.trim().isEmpty()) return;
 
         try {
-            shopService.addStick(woodId, coreId, stock);
-            updateStickTable();
-            updateComponentStock("wood", woodName, -stock);
-            updateComponentStock("core", coreName, -stock);
-            JOptionPane.showMessageDialog(this, "Палочки добавлены!");
+            // Получаем или создаем компоненты
+            Wood wood = shopService.getWoodByName(woodName);
+            if (wood == null) {
+                String qtyStr = JOptionPane.showInputDialog("Древесина не найдена. Добавить на склад? Количество:");
+                if (qtyStr == null) return;
+                int qty = Integer.parseInt(qtyStr);
+                shopService.addWood(woodName, qty);
+                wood = shopService.getWoodByName(woodName);
+            }
+
+            Core core = shopService.getCoreByName(coreName);
+            if (core == null) {
+                String qtyStr = JOptionPane.showInputDialog("Сердцевина не найдена. Добавить на склад? Количество:");
+                if (qtyStr == null) return;
+                int qty = Integer.parseInt(qtyStr);
+                shopService.addCore(coreName, qty);
+                core = shopService.getCoreByName(coreName);
+            }
+
+            // Проверяем, не существует ли уже такая палочка
+            MagicStick existing = shopService.getStickByWoodAndCore(wood.getId(), core.getId());
+            if (existing != null) {
+                JOptionPane.showMessageDialog(this, "Палочка с такой комбинацией уже существует!", "Ошибка", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            shopService.addStick(wood.getId(), core.getId());
+            updateAllTables();
+            JOptionPane.showMessageDialog(this, "Палочка добавлена!");
         } catch (Exception ex) {
             showError(ex.getMessage());
         }
     }
-
     private void sellStickDialog() throws Exception {
         int stickId = Integer.parseInt(JOptionPane.showInputDialog("ID палочки:"));
         MagicStick stick = shopService.getStickById(stickId);
@@ -264,6 +477,7 @@ public class GUI extends JFrame {
         Buyer buyer = shopService.getBuyerByName(buyerName);
         if (buyer == null) {
             String address = JOptionPane.showInputDialog("Адрес покупателя:");
+            if (address == null || address.trim().isEmpty()) return;
             try {
                 shopService.addBuyer(buyerName, address);
                 buyer = shopService.getBuyerByName(buyerName);
@@ -275,10 +489,7 @@ public class GUI extends JFrame {
 
         try {
             shopService.sellStick(stickId, buyer.getId());
-            updateStickTable();
-            updateSaleTable();
-            updateComponentStock("wood", stick.getWood().getName(), -1);
-            updateComponentStock("core", stick.getCore().getName(), -1);
+            updateAllTables();
             JOptionPane.showMessageDialog(this, "Палочка продана!");
         } catch (Exception ex) {
             showError(ex.getMessage());

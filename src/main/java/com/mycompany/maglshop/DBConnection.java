@@ -10,40 +10,48 @@ package com.mycompany.maglshop;
  */
 
 
-
-
 import java.io.*;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DBConnection {
     private static final String DB_NAME = "wand_shop.db";
-    private static final String DB_PATH = "database/" + DB_NAME;
-    private static final String USER_DIR = System.getProperty("user.home") + File.separator + ".MaglShop";
-    private static final String DB_FILE = USER_DIR + File.separator + DB_NAME;
-
-    public static Connection getConnection() throws IOException, SQLException {
-        // Создаём пользовательскую папку для хранения БД
-        File userDir = new File(USER_DIR);
-        if (!userDir.exists()) {
-            userDir.mkdirs();
-        }
-
-        // Копируем БД из ресурсов, если её нет в пользовательской папке
-        try (InputStream is = DBConnection.class.getClassLoader().getResourceAsStream(DB_PATH)) {
-            if (is == null) {
-                throw new FileNotFoundException("База данных не найдена в ресурсах: " + DB_PATH);
+    private static final String RESOURCE_DB_PATH = "/" + DB_NAME;
+    
+    public static Connection getConnection() throws SQLException {
+        try {
+            // Путь к БД в рабочей директории
+            Path dbPath = Paths.get(DB_NAME);
+            
+            // Если БД не существует в рабочей директории, копируем из ресурсов
+            if (!Files.exists(dbPath)) {
+                copyDatabaseFromResources(dbPath);
             }
-
-            File dbFile = new File(DB_FILE);
-            if (!dbFile.exists()) {
-                Files.copy(is, Paths.get(DB_FILE));
-            }
+            
+            // Подключаемся к БД в рабочей директории
+            String url = "jdbc:sqlite:" + dbPath.toAbsolutePath().toString();
+            return DriverManager.getConnection(url);
+            
+        } catch (Exception e) {
+            throw new SQLException("Ошибка подключения к базе данных: " + e.getMessage(), e);
         }
-
-        // Подключаемся к БД в пользовательской папке
-        return DriverManager.getConnection("jdbc:sqlite:" + DB_FILE);
+    }
+    
+    private static void copyDatabaseFromResources(Path targetPath) throws IOException {
+        try (InputStream inputStream = DBConnection.class.getResourceAsStream(RESOURCE_DB_PATH)) {
+            if (inputStream == null) {
+                // Если БД нет в ресурсах, создаем пустую
+                System.out.println("База данных не найдена в ресурсах. Будет создана новая.");
+                return;
+            }
+            
+            // Копируем БД из ресурсов в рабочую директорию
+            Files.copy(inputStream, targetPath);
+            System.out.println("База данных скопирована из ресурсов: " + targetPath.toAbsolutePath());
+        }
     }
 }

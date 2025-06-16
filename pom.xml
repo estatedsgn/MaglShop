@@ -5,6 +5,7 @@
     <artifactId>MaglShop</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
+    
     <dependencies>
         <dependency>
             <groupId>org.xerial</groupId>
@@ -12,11 +13,13 @@
             <version>3.49.1.0</version>
         </dependency>
     </dependencies>
+    
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
         <exec.mainClass>com.mycompany.maglshop.MaglShop</exec.mainClass>
     </properties>
+    
     <build>
         <plugins>
             <!-- Maven Shade Plugin для сборки fat JAR -->
@@ -31,33 +34,26 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <finalName>MaglShop-${version}</finalName>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.mycompany.maglshop.MaglShop</mainClass>
                                 </transformer>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
-                                    <resource>database/wand_shop.db</resource>
-                                    <file>resources/database/wand_shop.db</file>
-                                </transformer>
                             </transformers>
+                            <!-- Включаем все ресурсы -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-
-            <!-- Maven Resources Plugin для копирования БД в ресурсы -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.3.1</version>
-                <configuration>
-                    <resources>
-                        <resource>
-                            <directory>src/main/resources</directory>
-                            <filtering>false</filtering>
-                        </resource>
-                    </resources>
-                </configuration>
             </plugin>
         </plugins>
     </build>
