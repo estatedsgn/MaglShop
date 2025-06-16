@@ -16,30 +16,25 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+              <finalName>MaglShop-${version}</finalName>
               <transformers>
                 <transformer>
                   <mainClass>com.mycompany.maglshop.MaglShop</mainClass>
                 </transformer>
-                <transformer>
-                  <resource>database/wand_shop.db</resource>
-                  <file>resources/database/wand_shop.db</file>
-                </transformer>
               </transformers>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
             </configuration>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <artifactId>maven-resources-plugin</artifactId>
-        <version>3.3.1</version>
-        <configuration>
-          <resources>
-            <resource>
-              <directory>src/main/resources</directory>
-              <filtering>false</filtering>
-            </resource>
-          </resources>
-        </configuration>
       </plugin>
     </plugins>
   </build>
