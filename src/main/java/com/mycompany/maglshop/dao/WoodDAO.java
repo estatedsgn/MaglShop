@@ -19,7 +19,12 @@ import java.util.List;
 
 public class WoodDAO {
     public void addComponent(Wood wood) throws SQLException, IOException {
-        String sql = "INSERT INTO wood(name, stock) VALUES(?, ?)";
+                    String sql = """
+        INSERT INTO wood(name, stock) 
+        VALUES(?, ?)
+        ON CONFLICT(name) 
+        DO UPDATE SET stock = excluded.stock
+        """;
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, wood.getName());

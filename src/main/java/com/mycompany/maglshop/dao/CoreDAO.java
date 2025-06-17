@@ -18,7 +18,12 @@ import java.util.List;
 
 public class CoreDAO {
     public void addComponent(Core core) throws SQLException, IOException {
-        String sql = "INSERT INTO core(name, stock) VALUES(?, ?)";
+            String sql = """
+        INSERT INTO core(name, stock) 
+        VALUES(?, ?)
+        ON CONFLICT(name) 
+        DO UPDATE SET stock = excluded.stock
+        """;
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, core.getName());
